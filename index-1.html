@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GUTRIAN CSD</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f4f7fb;color:#172033}
+header{background:#123b62;color:white;padding:16px 18px;position:sticky;top:0;z-index:5;box-shadow:0 2px 10px #0002}
+h1{margin:0;font-size:22px}.sub{font-size:12px;opacity:.8;margin-top:3px}
+nav{display:flex;gap:7px;overflow:auto;padding:10px;background:white;position:sticky;top:72px;z-index:4;border-bottom:1px solid #ddd}
+nav button,.btn{border:0;border-radius:9px;padding:10px 13px;background:#e9eef5;color:#17304a;font-weight:650;white-space:nowrap}
+nav button.active,.primary{background:#1769aa;color:white}.danger{background:#c73535;color:#fff}.success{background:#198754;color:#fff}
+main{max-width:1050px;margin:auto;padding:15px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card{background:#fff;border-radius:14px;padding:15px;box-shadow:0 2px 10px #0000000b;border:1px solid #e7edf3}.num{font-size:28px;font-weight:800}.muted{color:#697586;font-size:13px}
+form{display:grid;gap:10px}.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{font-size:13px;font-weight:650}input,select,textarea{width:100%;padding:11px;border:1px solid #cfd8e3;border-radius:9px;background:#fff;font:inherit}textarea{min-height:70px}
+table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:10px;border-bottom:1px solid #edf0f3;text-align:left;font-size:13px}th{background:#f6f8fb}.pill{padding:4px 8px;border-radius:99px;font-size:11px;font-weight:700}.available{background:#dff6e8;color:#137333}.out{background:#ffe4e4;color:#a61b1b}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.hide{display:none}.section{margin-bottom:14px}.toast{position:fixed;right:14px;bottom:14px;background:#172033;color:#fff;padding:12px 15px;border-radius:10px;display:none;z-index:20}
+@media(max-width:700px){.grid{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}table{display:block;overflow:auto}nav{top:67px}.num{font-size:23px}}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<header><h1>GUTRIAN CSD</h1><div class="sub" id="userLine">Online Card Management System</div></header>
+
+<div id="login" class="section" style="max-width:480px;margin:45px auto;padding:18px">
+  <div class="card">
+    <h2>Admin / User Login</h2>
+    <p class="muted">Email और Password से login करें।</p>
+    <label>Email</label>
+    <input id="email" type="email" placeholder="admin@example.com" autocomplete="username">
+    <label>Password</label>
+    <input id="password" type="password" placeholder="Password" autocomplete="current-password">
+    <button class="btn primary" onclick="loginEmail()">Login</button>
+    <p class="muted" id="loginMsg"></p>
+  </div>
+</div>
+
+<div id="app" class="hide">
+<nav>
+<button class="active" onclick="show('dash',this)">Dashboard</button>
+<button class="adminOnly" onclick="show('add',this)">➕ Add / Deposit</button>
+<button class="adminOnly" onclick="show('out',this)">➖ Card Out</button>
+<button onclick="show('search',this)">🔎 Search</button>
+<button onclick="show('history',this)">📋 History</button>
+<button onclick="logout()">Logout</button>
+</nav>
+<main>
+<section id="dash">
+<div class="grid">
+<div class="card"><div class="muted">Total Cards</div><div class="num" id="total">0</div></div>
+<div class="card"><div class="muted">Available</div><div class="num" id="avail">0</div></div>
+<div class="card"><div class="muted">Cards Out</div><div class="num" id="outCount">0</div></div>
+</div>
+<div class="card section" style="margin-top:14px"><h3>Company-wise Summary</h3><div id="companies">Loading...</div></div>
+</section>
+
+<section id="add" class="hide">
+<div class="card"><h2>Add New Card</h2>
+<form onsubmit="addCard(event)">
+<div class="two"><div><label>Person Name</label><input id="aName" required></div><div><label>Mobile Number</label><input id="aPhone" placeholder="+91..." required></div></div>
+<div class="two"><div><label>Unique Card Number</label><input id="aCard" required></div><div><label>Company</label><input id="aCompany" required></div></div>
+<div class="two"><div><label>Department</label><input id="aDept"></div><div><label>Reminder After</label><select id="aReminder"><option value="24">24 Hours</option><option value="48">48 Hours</option><option value="72">3 Days</option><option value="168">7 Days</option></select></div></div>
+<textarea id="aNote" placeholder="Remarks"></textarea>
+<button class="btn primary">Save Card</button></form></div>
+</section>
+
+<section id="out" class="hide">
+<div class="card"><h2>➖ Card Out</h2>
+<form onsubmit="cardOut(event)">
+<label>Unique Card Number</label><input id="oCard" required>
+<label>Person Name (जिसे card दिया)</label><input id="oName" required>
+<label>Mobile Number</label><input id="oPhone" placeholder="+91..." required>
+<div class="two"><div><label>Reminder After</label><select id="oReminder"><option value="24">24 Hours</option><option value="48">48 Hours</option><option value="72">3 Days</option><option value="168">7 Days</option></select></div><div><label>Remarks</label><input id="oNote"></div></div>
+<button class="btn danger">Card Out / Minus</button></form>
+<p class="muted">Card Out होते ही Available count −1 होगा और reminder schedule record होगा.</p></div>
+</section>
+
+<section id="search" class="hide">
+<div class="card"><h2>Search Cards</h2><input id="q" placeholder="Name / Card Number / Company" oninput="renderSearch()"></div>
+<div class="card" style="margin-top:12px"><div id="results"></div></div>
+</section>
+
+<section id="history" class="hide">
+<div class="card"><h2>History</h2><div class="row"><input id="dateFilter" type="date" onchange="renderHistory()"><button class="btn" onclick="document.getElementById('dateFilter').value='';renderHistory()">Clear</button></div><div id="hist" style="margin-top:10px"></div></div>
+</section>
+</main></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyD6xLYqrJUU6Mi_mx3A6I3A9lI6TiyCw98",authDomain:"card-flow-manger.firebaseapp.com",projectId:"card-flow-manger",storageBucket:"card-flow-manger.firebasestorage.app",messagingSenderId:"477244925151",appId:"1:477244925151:web:79b20a5dfa0f7bddb7356a",measurementId:"G-33DVRHDJV3"};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth(), db=firebase.firestore();
+let confirmation=null, cards=[], events=[], currentRole='VIEWER';
+const $=id=>document.getElementById(id);
+
+
+function toast(x){let t=document.getElementById('toast');t.textContent=x;t.style.display='block';setTimeout(()=>t.style.display='none',2800)}
+auth.onAuthStateChanged(async u=>{
+ if(u){document.getElementById('login').classList.add('hide');document.getElementById('app').classList.remove('hide');document.getElementById('userLine').textContent=(u.email||u.phoneNumber||'User')+' | Logged in';await loadData();}
+ else {document.getElementById('login').classList.remove('hide');document.getElementById('app').classList.add('hide');}
+});
+async function loginEmail(){
+ try{
+  const email=document.getElementById('email').value.trim();
+  const password=document.getElementById('password').value;
+  if(!email||!password){document.getElementById('loginMsg').textContent='Email और Password दोनों भरें.';return;}
+  await auth.signInWithEmailAndPassword(email,password);
+ }catch(e){document.getElementById('loginMsg').textContent=e.message}
+}
+function logout(){auth.signOut()}
+function show(id,b){document.querySelectorAll('main>section').forEach(x=>x.classList.add('hide'));document.getElementById(id).classList.remove('hide');document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b?.classList.add('active');if(id==='search')renderSearch();if(id==='history')renderHistory()}
+async function loadData(){
+ cards=[];events=[];
+ try {
+  const u=auth.currentUser;
+  if(!u) return;
+  const ur=await db.collection('Users').doc(u.uid).get();
+  currentRole=ur.exists && String(ur.data().Role||ur.data().role||'VIEWER').toUpperCase()==='ADMIN' ? 'ADMIN' : 'VIEWER';
+  applyRoleUI();
+ const cs=await db.collection('cards').get();cs.forEach(d=>cards.push({id:d.id,...d.data()}));
+ const es=await db.collection('card_events').orderBy('at','desc').limit(500).get();es.forEach(d=>events.push({id:d.id,...d.data()}));
+ renderDash();renderSearch();renderHistory();
+ } catch(e){ console.error(e); toast('Data load error: '+(e.message||e)); }
+}
+function applyRoleUI(){
+ const admin=currentRole==='ADMIN';
+ document.querySelectorAll('.adminOnly').forEach(x=>x.classList.toggle('hide',!admin));
+}
+
+function renderDash(){
+ let a=cards.filter(x=>x.status==='AVAILABLE').length,o=cards.filter(x=>x.status==='OUT').length;
+ total.textContent=cards.length;avail.textContent=a;outCount.textContent=o;
+ let m={};cards.forEach(c=>{let k=c.company||'Unknown';m[k]??={t:0,a:0,o:0};m[k].t++;c.status==='OUT'?m[k].o++:m[k].a++});
+ companies.innerHTML=Object.entries(m).map(([k,v])=>`<div class="row" style="justify-content:space-between;border-bottom:1px solid #eee;padding:9px 0"><b>${esc(k)}</b><span>Total ${v.t} · Available ${v.a} · Out ${v.o}</span></div>`).join('')||'No cards yet';
+}
+function renderSearch(){
+ let q=($('q')?.value||'').toLowerCase();
+ let r=cards.filter(c=>[c.name,c.cardNumber,c.company,c.department,c.phone].some(v=>(v||'').toLowerCase().includes(q)));
+ results.innerHTML='<table><tr><th>Card</th><th>Person</th><th>Company</th><th>Status</th><th>Action</th></tr>'+r.map(c=>`<tr><td><b>${esc(c.cardNumber)}</b></td><td>${esc(c.name||'')}</td><td>${esc(c.company||'')}</td><td><span class="pill ${c.status==='OUT'?'out':'available'}">${c.status}</span></td><td><button class="btn" onclick="details('${c.id}')">Details</button> ${currentRole==='ADMIN'&&c.status==='OUT'?`<button class="btn success" onclick="deposit('${c.id}')">Deposit</button>`:''}</td></tr>`).join('')+'</table>';
+}
+function renderHistory(){
+ let f=document.getElementById('dateFilter')?.value||'';
+ let r=events.filter(e=>!f||new Date(e.at?.seconds?e.at.seconds*1000:e.at).toISOString().slice(0,10)===f);
+ hist.innerHTML='<table><tr><th>Date/Time</th><th>Action</th><th>Card</th><th>Person</th><th>Company</th></tr>'+r.map(e=>`<tr><td>${fmt(e.at)}</td><td>${esc(e.action)}</td><td>${esc(e.cardNumber)}</td><td>${esc(e.name||'')}</td><td>${esc(e.company||'')}</td></tr>`).join('')+'</table>';
+}
+async function addCard(ev){
+ ev.preventDefault();
+ const btn=ev.submitter||ev.target.querySelector('button[type=submit]');
+ try{
+  if(currentRole!=='ADMIN'){toast('Sirf Admin card add kar sakta hai');return;}
+  const name=$('aName').value.trim();
+  const phone=$('aPhone').value.trim();
+  const cardNumber=$('aCard').value.trim();
+  const company=$('aCompany').value.trim();
+  const department=$('aDept').value.trim();
+  const reminderHours=Number($('aReminder').value);
+  const note=$('aNote').value.trim();
+  if(!name||!phone||!cardNumber||!company){toast('Name, Mobile, Card Number aur Company zaroor bharen');return;}
+  const exists=cards.some(c=>String(c.cardNumber||'').trim().toLowerCase()===cardNumber.toLowerCase());
+  if(exists){toast('Ye Card Number pehle se maujood hai');return;}
+  if(btn){btn.disabled=true;btn.textContent='Saving...';}
+  const ref=db.collection('cards').doc();
+  const data={name,phone,cardNumber,company,department,status:'AVAILABLE',reminderHours,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp(),note};
+  await ref.set(data);
+  await db.collection('card_events').add({cardId:ref.id,cardNumber,name,company,action:'DEPOSIT/ADDED',at:firebase.firestore.FieldValue.serverTimestamp(),by:(auth.currentUser?.email||auth.currentUser?.phoneNumber||'User')});
+  ev.target.reset();
+  await loadData();
+  toast('✅ Card successfully saved: '+cardNumber);
+  show('dash',document.querySelector('nav button'));
+ }catch(e){ console.error(e); toast('❌ Save failed: '+(e.message||e)); }
+ finally{ if(btn){btn.disabled=false;btn.textContent='Save Card';} }
+}
+async function cardOut(ev){ev.preventDefault();let c=cards.find(x=>x.cardNumber===oCard.value.trim());if(!c){toast('Card नहीं मिला');return}if(c.status==='OUT'){toast('Card पहले से OUT है');return}
+let now=new Date();let due=new Date(now.getTime()+Number(oReminder.value)*3600000);
+await db.collection('cards').doc(c.id).update({status:'OUT',name:oName.value.trim(),phone:oPhone.value.trim(),outAt:firebase.firestore.Timestamp.fromDate(now),reminderHours:Number(oReminder.value),reminderDueAt:firebase.firestore.Timestamp.fromDate(due),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+await db.collection('card_events').add({cardId:c.id,cardNumber:c.cardNumber,name:oName.value.trim(),company:c.company,action:'OUT',at:firebase.firestore.FieldValue.serverTimestamp(),reminderDueAt:firebase.firestore.Timestamp.fromDate(due),by:(auth.currentUser.email||auth.currentUser.phoneNumber||'User')});
+toast('Card Out: Available count −1');ev.target.reset();await loadData();show('dash',document.querySelector('nav button'))}
+async function deposit(id){let c=cards.find(x=>x.id===id);if(!c||c.status!=='OUT')return;await db.collection('cards').doc(id).update({status:'AVAILABLE',depositAt:firebase.firestore.FieldValue.serverTimestamp(),reminderDueAt:null,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});await db.collection('card_events').add({cardId:id,cardNumber:c.cardNumber,name:c.name,company:c.company,action:'DEPOSIT',at:firebase.firestore.FieldValue.serverTimestamp(),by:(auth.currentUser.email||auth.currentUser.phoneNumber||'User')});toast('Card deposited; reminder stopped');await loadData();renderSearch()}
+function details(id){
+ const c=cards.find(x=>x.id===id); if(!c)return;
+ const h=events.filter(e=>e.cardId===id);
+ const history=h.map(e=>`${e.action} - ${fmt(e.at)}`).join('\n')||'No history';
+ const msg=`Card: ${c.cardNumber}\nPerson: ${c.name||''}\nCompany: ${c.company||''}\nDepartment: ${c.department||''}\nStatus: ${c.status}\nPhone: ${c.phone||''}\n\nHistory:\n${history}`;
+ alert(msg);
+}
+function fmt(x){if(!x)return'-';let d=x.seconds?new Date(x.seconds*1000):new Date(x);return d.toLocaleString('en-IN')}
+function esc(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+</script>
+</body></html>
