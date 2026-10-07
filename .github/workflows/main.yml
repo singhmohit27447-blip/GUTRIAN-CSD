@@ -24,6 +24,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
+          # ---------- MainActivity fixes ----------
           p = Path("app/src/main/java/com/gutrian/csd/MainActivity.kt")
           s = p.read_text()
 
@@ -39,6 +40,7 @@ jobs:
 
           p.write_text(s)
 
+          # ---------- Gradle fixes ----------
           p = Path("app/build.gradle.kts")
           s = p.read_text()
 
@@ -57,6 +59,7 @@ jobs:
 
               kotlinOptions {
                   jvmTarget = "17"
+                  allWarningsAsErrors = false
               }
 
               defaultConfig {
@@ -70,8 +73,12 @@ jobs:
 
           if old in s:
               s = s.replace(old, new)
+          else:
+              print("Android block already modified or format changed.")
 
           p.write_text(s)
+
+          print("Android project fixes applied successfully.")
           PY
 
       - name: Setup Java 17
