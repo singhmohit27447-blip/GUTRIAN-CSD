@@ -19,11 +19,28 @@ jobs:
           unzip -q GUTRIAN_CSD_Android_V1.zip
           cp -r GUTRIAN_CSD_Android/. ./
 
-      - name: Fix JVM Target
+      - name: Fix Android Project
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
+          # Fix Kotlin visibility problem
+          p = Path("app/src/main/java/com/gutrian/csd/MainActivity.kt")
+          s = p.read_text()
+
+          s = s.replace(
+              "private data class CardRecord(",
+              "data class CardRecord("
+          )
+
+          s = s.replace(
+              "private data class EventRecord(",
+              "data class EventRecord("
+          )
+
+          p.write_text(s)
+
+          # Fix Java/Kotlin JVM target mismatch
           p = Path("app/build.gradle.kts")
           s = p.read_text()
 
@@ -54,10 +71,11 @@ jobs:
           }'''
 
           if old not in s:
-              raise SystemExit("Expected android block was not found")
+              raise SystemExit("Expected Android block was not found")
 
           p.write_text(s.replace(old, new))
-          print("JVM target fixed: Java 17 + Kotlin 17")
+
+          print("Android project fixes applied successfully.")
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
