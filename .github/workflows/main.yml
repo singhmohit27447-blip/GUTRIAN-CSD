@@ -16,7 +16,7 @@ jobs:
 
       - name: Extract Android project
         run: |
-          unzip -q GUTRIAN_CSD_PhoneOTP_Admin_V2_FIXED.zip
+          unzip -q GUTRIAN_CSD_EmailLogin_Free_V3.zip
           cp -r GUTRIAN_CSD_Android/. ./
 
       - name: Fix Android Project
