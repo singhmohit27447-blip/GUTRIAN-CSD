@@ -28,6 +28,7 @@ jobs:
           p = Path("app/src/main/java/com/gutrian/csd/MainActivity.kt")
           s = p.read_text()
 
+          # Make data classes accessible where needed
           s = s.replace(
               "private data class CardRecord(",
               "data class CardRecord("
@@ -37,6 +38,13 @@ jobs:
               "private data class EventRecord(",
               "data class EventRecord("
           )
+
+          # Explicitly allow all Material3 experimental APIs
+          # This fixes the MainActivity.kt:128 compile error
+          optin = "@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)"
+
+          if optin not in s:
+              s = optin + "\n\n" + s
 
           p.write_text(s)
 
