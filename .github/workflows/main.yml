@@ -16,7 +16,7 @@ jobs:
 
       - name: Extract FINAL Android project
         run: |
-          unzip -q GUTRIAN_CSD_FINAL_FREE.zip
+          unzip -q GUTRIAN_CSD_FINAL_FREE_FIXED.zip
           cp -r GUTRIAN_CSD_Android/. ./
 
       - name: Fix Android Project
