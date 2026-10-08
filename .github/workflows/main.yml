@@ -11,93 +11,55 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract Firebase Android project
+      - name: Find and extract GUTRIAN CSD Admin Fix
         run: |
-          unzip -q GUTRIAN_CSD_FIREBASE_ANDROID_FIXED.zip
-          cp -r GUTRIAN_CSD_Android/. ./
+          set -e
 
-      - name: Fix Android Java and Kotlin settings
+          ZIP_FILE="GUTRIAN_CSD_ADMIN_FIX.zip"
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: $ZIP_FILE not found in repository."
+            echo "Files in repository:"
+            ls -la
+            exit 1
+          fi
+
+          rm -rf build_project
+          mkdir -p build_project
+
+          unzip -q "$ZIP_FILE" -d build_project
+
+          echo "Extracted files:"
+          find build_project -maxdepth 3 -type f | head -100
+
+      - name: Locate Android project
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
+          set -e
 
-          p = Path("app/build.gradle.kts")
-          s = p.read_text()
+          PROJECT_DIR=$(find build_project -name settings.gradle.kts -type f -print -quit | xargs dirname)
 
-          # Remove old android block if present
-          old = '''android { namespace = "com.gutrian.csd"; compileSdk = 35
-              defaultConfig { applicationId = "com.gutrian.csd"; minSdk = 26; targetSdk = 35; versionCode = 1; versionName = "1.0.0" }
-          }'''
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: Android project not found."
+            find build_project -maxdepth 5 -type f
+            exit 1
+          fi
 
-          new = '''android {
-              namespace = "com.gutrian.csd"
-              compileSdk = 35
-
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-
-              kotlinOptions {
-                  jvmTarget = "17"
-                  allWarningsAsErrors = false
-              }
-
-              defaultConfig {
-                  applicationId = "com.gutrian.csd"
-                  minSdk = 26
-                  targetSdk = 35
-                  versionCode = 2
-                  versionName = "1.1.0"
-              }
-          }'''
-
-          if old in s:
-              s = s.replace(old, new)
-          elif "compileOptions" not in s:
-              start = s.find("android {")
-              if start >= 0:
-                  end = s.find("\n}", start)
-                  if end >= 0:
-                      end = end + 2
-                      s = s[:start] + new + s[end:]
-
-          p.write_text(s)
-
-          # Fix MainActivity Kotlin opt-in if required
-          p = Path("app/src/main/java/com/gutrian/csd/MainActivity.kt")
-          s = p.read_text()
-
-          optin = "@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)"
-
-          if optin not in s:
-              s = optin + "\n\n" + s
-
-          s = s.replace(
-              "private data class CardRecord(",
-              "data class CardRecord("
-          )
-
-          s = s.replace(
-              "private data class EventRecord(",
-              "data class EventRecord("
-          )
-
-          p.write_text(s)
-
-          print("Android Java/Kotlin JVM target fixed to 17.")
-          PY
+          echo "ANDROID_PROJECT=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Android project: $PROJECT_DIR"
 
       - name: Verify Firebase Android configuration
         run: |
-          test -f app/google-services.json
-          test -f app/src/main/java/com/gutrian/csd/MainActivity.kt
-          grep -q '"project_id": "card-flow-manger"' app/google-services.json
-          grep -q '"package_name": "com.gutrian.csd"' app/google-services.json
-          echo "Firebase configuration verified."
+          set -e
+
+          test -f "$ANDROID_PROJECT/app/google-services.json"
+
+          echo "Firebase configuration found."
+          grep -q '"com.gutrian.csd"' "$ANDROID_PROJECT/app/google-services.json"
+
+          echo "Package name verified: com.gutrian.csd"
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -106,22 +68,52 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          accept-android-sdk-licenses: 'true'
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+        uses: android-actions/setup-android@v3
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.10.2'
+          gradle-version: '8.7'
 
-      - name: Build GUTRIAN CSD APK
+      - name: Show project files
+        working-directory: ${{ env.ANDROID_PROJECT }}
         run: |
-          gradle clean assembleDebug --no-daemon
+          echo "Project files:"
+          find . -maxdepth 3 -type f | sort
 
-      - name: Upload APK
+      - name: Build GUTRIAN CSD Debug APK
+        working-directory: ${{ env.ANDROID_PROJECT }}
+        run: |
+          set -e
+
+          gradle --version
+
+          gradle \
+            --no-daemon \
+            --stacktrace \
+            :app:assembleDebug \
+            -Pandroid.injected.invoked.from.ide=true
+
+      - name: Verify APK
+        working-directory: ${{ env.ANDROID_PROJECT }}
+        run: |
+          set -e
+
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK was not generated."
+            find app/build -type f 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "APK successfully generated:"
+          ls -lh "$APK"
+
+      - name: Upload GUTRIAN CSD APK
         uses: actions/upload-artifact@v4
         with:
           name: GUTRIAN-CSD-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.ANDROID_PROJECT }}/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
