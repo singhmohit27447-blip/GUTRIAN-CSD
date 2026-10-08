@@ -20,46 +20,43 @@ jobs:
 
           ZIP_FILE="GUTRIAN_CSD_ADMIN_FIX.zip"
 
-          if [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: $ZIP_FILE not found in repository."
-            echo "Files in repository:"
-            ls -la
-            exit 1
-          fi
+          test -f "$ZIP_FILE"
 
           rm -rf build_project
           mkdir -p build_project
 
           unzip -q "$ZIP_FILE" -d build_project
 
-          echo "Extracted files:"
+          echo "Extracted project:"
           find build_project -maxdepth 3 -type f | head -100
 
       - name: Locate Android project
         run: |
           set -e
 
-          PROJECT_DIR=$(find build_project -name settings.gradle.kts -type f -print -quit | xargs dirname)
+          PROJECT_DIR=$(find build_project \
+            -name settings.gradle.kts \
+            -type f \
+            -print -quit | xargs dirname)
 
           if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: Android project not found."
+            echo "Android project not found"
             find build_project -maxdepth 5 -type f
             exit 1
           fi
 
           echo "ANDROID_PROJECT=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Android project: $PROJECT_DIR"
 
-      - name: Verify Firebase Android configuration
+      - name: Verify Firebase configuration
         run: |
           set -e
 
           test -f "$ANDROID_PROJECT/app/google-services.json"
 
-          echo "Firebase configuration found."
-          grep -q '"com.gutrian.csd"' "$ANDROID_PROJECT/app/google-services.json"
+          grep -q '"com.gutrian.csd"' \
+            "$ANDROID_PROJECT/app/google-services.json"
 
-          echo "Package name verified: com.gutrian.csd"
+          echo "Firebase Android configuration OK"
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -67,32 +64,50 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Prepare Android SDK
+        run: |
+          set -e
+
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
+              -name sdkmanager \
+              -type f 2>/dev/null | head -1)
+          fi
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found"
+            find "$ANDROID_HOME" -maxdepth 5 -type f -name sdkmanager 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "Using sdkmanager: $SDKMANAGER"
+
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
-      - name: Show project files
-        working-directory: ${{ env.ANDROID_PROJECT }}
-        run: |
-          echo "Project files:"
-          find . -maxdepth 3 -type f | sort
-
-      - name: Build GUTRIAN CSD Debug APK
+      - name: Build GUTRIAN CSD APK
         working-directory: ${{ env.ANDROID_PROJECT }}
         run: |
           set -e
 
-          gradle --version
-
           gradle \
             --no-daemon \
             --stacktrace \
-            :app:assembleDebug \
-            -Pandroid.injected.invoked.from.ide=true
+            :app:assembleDebug
 
       - name: Verify APK
         working-directory: ${{ env.ANDROID_PROJECT }}
@@ -101,13 +116,9 @@ jobs:
 
           APK="app/build/outputs/apk/debug/app-debug.apk"
 
-          if [ ! -f "$APK" ]; then
-            echo "ERROR: APK was not generated."
-            find app/build -type f 2>/dev/null || true
-            exit 1
-          fi
+          test -f "$APK"
 
-          echo "APK successfully generated:"
+          echo "APK CREATED SUCCESSFULLY"
           ls -lh "$APK"
 
       - name: Upload GUTRIAN CSD APK
