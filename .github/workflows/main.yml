@@ -18,7 +18,7 @@ jobs:
         run: |
           set -e
 
-          ZIP_FILE="GUTRIAN_CSD_FINAL_SOURCE_V3_1_FIXED2.zip"
+          ZIP_FILE="GUTRIAN_CSD_FINAL_SOURCE_V1_5.zip"
           test -f "$ZIP_FILE"
 
           rm -rf build_project
