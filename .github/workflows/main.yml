@@ -18,7 +18,7 @@ jobs:
         run: |
           set -e
 
-          ZIP_FILE="GUTRIAN_CSD_ADMIN_FIX.zip"
+          ZIP_FILE="GUTRIAN_CSD_FINAL_SOURCE.zip"
 
           test -f "$ZIP_FILE"
 
