@@ -18,7 +18,7 @@ jobs:
         run: |
           set -e
 
-          ZIP_FILE="GUTRIAN_CSD_FINAL_SOURCE_V1_5.zip"
+          ZIP_FILE="CSD_Card_Management_Branch_Preview_V2.zip"
           test -f "$ZIP_FILE"
 
           rm -rf build_project
